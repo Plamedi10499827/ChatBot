@@ -1,7 +1,7 @@
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace ChatBot
 {
@@ -13,6 +13,7 @@ namespace ChatBot
 
         private readonly Random rng = new Random();
 
+        // Store cybersecurity topics and their possible responses.
         private readonly Dictionary<string, List<string>> keywordResponses =
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
             {
@@ -61,7 +62,7 @@ namespace ChatBot
                 ["wifi"] = new List<string>
                 {
                     "Be careful when using public Wi-Fi for sensitive activities.",
-                    "Avoid unfamiliar Wi-Fi networks that may be impersonating legitimate ones.",
+                    "Avoid unfamiliar Wi-Fi networks that may impersonate legitimate ones.",
                     "Check a website's address before entering sensitive information."
                 },
 
@@ -87,6 +88,7 @@ namespace ChatBot
                 }
             };
 
+        // Words and phrases that indicate the user's emotional state.
         private readonly List<string> worriedWords = new List<string>
         {
             "worried", "scared", "nervous", "afraid", "anxious", "concerned"
@@ -103,6 +105,7 @@ namespace ChatBot
             "frustrated", "annoyed", "angry", "upset"
         };
 
+        // Process the user's message and return an appropriate response.
         public string GetResponse(string input)
         {
             if (string.IsNullOrWhiteSpace(input))
@@ -110,41 +113,55 @@ namespace ChatBot
                 return "Please enter a message so I can help you.";
             }
 
-            string question = input.Trim().ToLowerInvariant();
+            string question = NormaliseInput(input);
 
             // Capture the user's name as their first message.
             if (string.IsNullOrWhiteSpace(userName))
             {
                 userName = input.Trim();
 
-                return $"Nice to meet you, {userName}! You can ask me about passwords, phishing, scams, privacy, malware, hacking, Wi-Fi, backups, updates, or social engineering.";
+                return $"Nice to meet you, {userName}! " +
+                       "You can ask me about passwords, phishing, scams, privacy, " +
+                       "malware, hacking, Wi-Fi, backups, updates, or social engineering.";
             }
 
-            // Remember the user's favourite topic.
-            if (question.Contains("my favourite topic is") ||
-                question.Contains("my favorite topic is"))
+            // Recall the user's name.
+            if (ContainsPhrase(question, "what is my name") ||
+                ContainsPhrase(question, "who am i"))
             {
-                string phrase = question.Contains("my favourite topic is")
-                    ? "my favourite topic is"
-                    : "my favorite topic is";
+                return $"Your name is {userName}.";
+            }
 
-                int position = question.IndexOf(
-                    phrase, StringComparison.OrdinalIgnoreCase);
+            // Save the user's favourite cybersecurity topic.
+            if (ContainsPhrase(question, "my favourite topic is") ||
+                ContainsPhrase(question, "my favorite topic is"))
+            {
+                string topic = ExtractFavouriteTopic(input);
 
-                favouriteTopic = input.Substring(position + phrase.Length).Trim();
-
-                if (string.IsNullOrWhiteSpace(favouriteTopic))
+                if (string.IsNullOrWhiteSpace(topic))
                 {
-                    favouriteTopic = "";
-                    return "Please tell me your favourite topic. For example: My favourite topic is privacy.";
+                    return "Please tell me your favourite topic. For example: " +
+                           "My favourite topic is privacy.";
                 }
 
-                return $"I'll remember that your favourite topic is {favouriteTopic} during this conversation.";
+                string? matchedTopic = FindTopic(topic);
+
+                if (matchedTopic == null)
+                {
+                    return "I don't recognise that cybersecurity topic. " +
+                           "Please choose passwords, phishing, scams, privacy, malware, " +
+                           "hacking, Wi-Fi, backups, updates, or social engineering.";
+                }
+
+                favouriteTopic = matchedTopic;
+
+                return $"I'll remember that your favourite topic is {favouriteTopic} " +
+                       "during this conversation.";
             }
 
             // Recall the user's favourite topic.
-            if (question.Contains("what is my favourite topic") ||
-                question.Contains("what is my favorite topic"))
+            if (ContainsPhrase(question, "what is my favourite topic") ||
+                ContainsPhrase(question, "what is my favorite topic"))
             {
                 if (string.IsNullOrWhiteSpace(favouriteTopic))
                 {
@@ -154,46 +171,7 @@ namespace ChatBot
                 return $"Your favourite topic is {favouriteTopic}.";
             }
 
-            // Recall the user's name.
-            if (question.Contains("what is my name") ||
-                question.Contains("who am i"))
-            {
-                return $"Your name is {userName}.";
-            }
-
-            // Respond to emotional cues.
-            if (ContainsAny(question, worriedWords))
-            {
-                return "It's understandable to feel worried about online safety. Let's take it step by step. What concerns you most?";
-            }
-
-            if (ContainsAny(question, confusedWords))
-            {
-                return "That's okay. Cybersecurity can be confusing. Which part would you like me to explain more simply?";
-            }
-
-            if (ContainsAny(question, frustratedWords))
-            {
-                return "I understand that this can feel frustrating. Let's work through it one step at a time.";
-            }
-
-            // Handle follow-up questions using the last topic.
-            if (question.Contains("tell me more") ||
-                question.Contains("another tip") ||
-                question.Contains("explain more") ||
-                question.Contains("more information"))
-            {
-                if (!string.IsNullOrWhiteSpace(lastTopic) &&
-                    keywordResponses.TryGetValue(lastTopic, out List<string>? responses))
-                {
-                    return $"Here is another tip about {lastTopic}: {responses[rng.Next(responses.Count)]}";
-                }
-
-                return "Which cybersecurity topic would you like to learn more about?";
-            }
-
-            // Handle greetings as complete words to avoid matching
-            // words such as "phishing" by mistake.
+            // Recognise greetings.
             if (question == "hi" || question.StartsWith("hi ") ||
                 question == "hello" || question.StartsWith("hello ") ||
                 question == "hey" || question.StartsWith("hey "))
@@ -201,34 +179,199 @@ namespace ChatBot
                 return $"Hello, {userName}! What would you like to learn about online safety?";
             }
 
-            if (question.Contains("thank"))
+            // Respond to expressions of gratitude.
+            if (ContainsPhrase(question, "thank") ||
+                ContainsPhrase(question, "thanks"))
             {
                 return "You're welcome! Stay alert and stay safe online.";
             }
 
-            if (question.Contains("help"))
+            // Provide help with supported topics.
+            if (ContainsPhrase(question, "help") ||
+                ContainsPhrase(question, "what can you do"))
             {
-                return "You can ask me about passwords, phishing, scams, privacy, malware, hacking, Wi-Fi, backups, updates, or social engineering. You can also ask for another tip.";
+                return "You can ask me about passwords, phishing, scams, privacy, " +
+                       "malware, hacking, Wi-Fi, backups, updates, or social engineering. " +
+                       "You can also ask for another tip.";
             }
 
-            // Find a cybersecurity keyword and choose a random response.
-            foreach (KeyValuePair<string, List<string>> topic in keywordResponses)
+            // Detect worried, confused, or frustrated messages.
+            if (ContainsAny(question, worriedWords))
             {
-                if (question.Contains(topic.Key))
+                if (ContainsPhrase(question, "not worried") ||
+                    ContainsPhrase(question, "not scared") ||
+                    ContainsPhrase(question, "not afraid"))
                 {
-                    lastTopic = topic.Key;
-                    return topic.Value[rng.Next(topic.Value.Count)];
+                    // Do not interpret these expressions as negative sentiment.
+                }
+                else
+                {
+                    return "It's understandable to feel worried about online safety. " +
+                           "Let's take it step by step. What concerns you most?";
                 }
             }
 
-            // Fallback for messages the chatbot does not recognise.
-            return "I'm not sure I understood that. Try asking about passwords, phishing, scams, privacy, malware, hacking, Wi-Fi, backups, updates, or social engineering.";
+            if (ContainsAny(question, confusedWords))
+            {
+                if (!ContainsPhrase(question, "not confused") &&
+                    !ContainsPhrase(question, "not sure"))
+                {
+                    return "That's okay. Cybersecurity can be confusing. " +
+                           "Which part would you like me to explain more simply?";
+                }
+            }
+
+            if (ContainsAny(question, frustratedWords))
+            {
+                if (!ContainsPhrase(question, "not angry") &&
+                    !ContainsPhrase(question, "not upset") &&
+                    !ContainsPhrase(question, "not frustrated"))
+                {
+                    return "I understand that this can feel frustrating. " +
+                           "Let's work through it one step at a time.";
+                }
+            }
+
+            // Answer follow-up requests using the previously discussed topic.
+            if (ContainsPhrase(question, "tell me more") ||
+                ContainsPhrase(question, "another tip") ||
+                ContainsPhrase(question, "explain more") ||
+                ContainsPhrase(question, "more information"))
+            {
+                if (!string.IsNullOrWhiteSpace(lastTopic) &&
+                    keywordResponses.TryGetValue(lastTopic, out List<string>? responses))
+                {
+                    return $"Here is another tip about {lastTopic}: " +
+                           responses[rng.Next(responses.Count)];
+                }
+
+                return "Which cybersecurity topic would you like to learn more about?";
+            }
+
+            // Find a supported cybersecurity topic.
+            string? detectedTopic = FindTopic(question);
+
+            if (detectedTopic != null)
+            {
+                lastTopic = detectedTopic;
+
+                List<string> responses = keywordResponses[detectedTopic];
+
+                return responses[rng.Next(responses.Count)];
+            }
+
+            // Provide a response when no topic is recognised.
+            return "I'm not sure I understood that. Try asking about passwords, phishing, " +
+                   "scams, privacy, malware, hacking, Wi-Fi, backups, updates, " +
+                   "or social engineering.";
         }
 
+        // Standardise punctuation, spacing, and common Wi-Fi variations.
+        private string NormaliseInput(string input)
+        {
+            string normalised = input.Trim().ToLowerInvariant();
+
+            normalised = Regex.Replace(normalised, @"\bwi[\s-]*fi\b", "wifi");
+
+            normalised = Regex.Replace(normalised, @"[^\w\s']", " ");
+
+            normalised = Regex.Replace(normalised, @"\s+", " ");
+
+            return normalised.Trim();
+        }
+
+        // Find a supported topic, including common alternative terms.
+        private string? FindTopic(string input)
+        {
+            string question = NormaliseInput(input);
+
+            foreach (KeyValuePair<string, List<string>> topic in keywordResponses)
+            {
+                if (ContainsPhrase(question, topic.Key))
+                {
+                    return topic.Key;
+                }
+            }
+
+            // Recognise common alternative words for supported topics.
+            if (ContainsPhrase(question, "passwords"))
+                return "password";
+
+            if (ContainsPhrase(question, "phishing email") ||
+                ContainsPhrase(question, "fake email"))
+                return "phishing";
+
+            if (ContainsPhrase(question, "scams"))
+                return "scam";
+
+            if (ContainsPhrase(question, "malicious software") ||
+                ContainsPhrase(question, "virus"))
+                return "malware";
+
+            if (ContainsPhrase(question, "wireless network") ||
+                ContainsPhrase(question, "public wifi"))
+                return "wifi";
+
+            if (ContainsPhrase(question, "backups") ||
+                ContainsPhrase(question, "back up"))
+                return "backup";
+
+            if (ContainsPhrase(question, "software update") ||
+                ContainsPhrase(question, "security update"))
+                return "updates";
+
+            if (ContainsPhrase(question, "social engineering attack"))
+                return "social engineering";
+
+            return null;
+        }
+
+        // Extract the favourite topic from the user's sentence.
+        private string ExtractFavouriteTopic(string input)
+        {
+            string normalised = input.Trim();
+
+            string[] phrases =
+            {
+                "my favourite topic is",
+                "my favorite topic is"
+            };
+
+            foreach (string phrase in phrases)
+            {
+                int position = normalised.IndexOf(
+                    phrase, StringComparison.OrdinalIgnoreCase);
+
+                if (position >= 0)
+                {
+                    return normalised.Substring(position + phrase.Length).Trim(
+                        ' ', '.', '!', '?', ',');
+                }
+            }
+
+            return "";
+        }
+
+        // Match complete words or phrases rather than partial words.
+        private bool ContainsPhrase(string input, string phrase)
+        {
+            string normalisedInput = NormaliseInput(input);
+            string normalisedPhrase = NormaliseInput(phrase);
+
+            string pattern = @"(?<!\w)" +
+                             Regex.Escape(normalisedPhrase) +
+                             @"(?!\w)";
+
+            return Regex.IsMatch(
+                normalisedInput,
+                pattern,
+                RegexOptions.IgnoreCase);
+        }
+
+        // Check whether the message contains any of the specified words.
         private bool ContainsAny(string input, List<string> words)
         {
-            return words.Any(word =>
-                input.Contains(word, StringComparison.OrdinalIgnoreCase));
+            return words.Any(word => ContainsPhrase(input, word));
         }
     }
 }
