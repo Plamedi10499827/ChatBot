@@ -1,4 +1,3 @@
-
 using System;
 using System.Drawing;
 using System.IO;
@@ -29,15 +28,10 @@ namespace ChatBot
             ChatInput2.Focus();
         }
 
-        // Replay the voice greeting when the audio button is clicked.
+        // Replay the voice greeting when the greeting button is clicked.
         private void button2_Click(object sender, EventArgs e)
         {
             PlayGreeting();
-        }
-
-        // No action is required when the first picture box is clicked.
-        private void pictureBox1_Click(object sender, EventArgs e)
-        {
         }
 
         // Play the WAV greeting from the output directory.
@@ -51,7 +45,9 @@ namespace ChatBot
             if (!File.Exists(audioPath))
             {
                 MessageBox.Show(
-                    "Audio file not found:\n" + audioPath,
+                    "Audio file not found:\n" + audioPath +
+                    "\n\nCheck that voice\\Bope_recording.wav exists " +
+                    "in your project and is copied to the output directory.",
                     "Audio Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -89,7 +85,9 @@ namespace ChatBot
             if (!File.Exists(imagePath))
             {
                 MessageBox.Show(
-                    "Image file not found:\n" + imagePath,
+                    "Image file not found:\n" + imagePath +
+                    "\n\nCheck that images\\Bope0401.JPG exists " +
+                    "in your project and is copied to the output directory.",
                     "Image Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -136,7 +134,7 @@ namespace ChatBot
         {
             string input = ChatInput2.Text.Trim();
 
-            // Do not process empty messages.
+            // Prevent empty messages from being processed.
             if (string.IsNullOrWhiteSpace(input))
             {
                 return;
@@ -160,6 +158,9 @@ namespace ChatBot
             ChatInput.AppendText(
                 "You: " + message +
                 Environment.NewLine + Environment.NewLine);
+
+            ChatInput.SelectionStart = ChatInput.TextLength;
+            ChatInput.ScrollToCaret();
         }
 
         // Display the chatbot's response and scroll to the latest message.
@@ -173,18 +174,25 @@ namespace ChatBot
             ChatInput.ScrollToCaret();
         }
 
-        // Release audio and image resources when the form closes.
+        // Stop the audio and release resources when the form closes.
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             player?.Stop();
             player?.Dispose();
+            player = null;
 
             pictureBox1.Image?.Dispose();
+            pictureBox1.Image = null;
 
             base.OnFormClosed(e);
         }
 
-        // No action is required when the second picture box is clicked.
+        // Leave this method only if the Designer uses this event handler.
+        private void pictureBox1_Click(object sender, EventArgs e)
+        {
+        }
+
+        // Leave this method only if the Designer uses this event handler.
         private void pictureBox2_Click(object sender, EventArgs e)
         {
         }
