@@ -16,14 +16,16 @@ namespace ChatBot
             InitializeComponent();
         }
 
-        // Load the logo, play the greeting, and welcome the user.
+        // Load the logo, play the greeting, and start the conversation.
         private void Form1_Load(object sender, EventArgs e)
         {
             DisplayLogo();
             PlayGreeting();
 
-            AddBotMessage("Welcome to the Cybersecurity Awareness Chatbot!");
-            AddBotMessage("Please enter your name to begin.");
+            AddBotMessage(
+                "Hi! I'm Bope, your Cybersecurity Awareness Chatbot.");
+
+            AddBotMessage("What's your name?");
 
             ChatInput2.Focus();
         }
@@ -129,52 +131,60 @@ namespace ChatBot
             }
         }
 
-        // Process the user's input and display the chatbot's response.
+        // Process the user's input and display Bope's response.
         private void SendMessage()
         {
             string input = ChatInput2.Text.Trim();
 
-            // Prevent empty messages from being processed.
             if (string.IsNullOrWhiteSpace(input))
             {
+                AddBotMessage("Please type a message first.");
+                ChatInput2.Focus();
                 return;
             }
 
-            // Display the user's message.
             AddUserMessage(input);
 
-            // Get and display the chatbot's response.
             string reply = engine.GetResponse(input);
             AddBotMessage(reply);
 
-            // Clear the input field and return focus to it.
             ChatInput2.Clear();
             ChatInput2.Focus();
         }
 
-        // Display the user's message in the conversation area.
+        // Display the user's message in blue.
         private void AddUserMessage(string message)
         {
+            ChatInput.SelectionStart = ChatInput.TextLength;
+            ChatInput.SelectionLength = 0;
+            ChatInput.SelectionColor = Color.DodgerBlue;
+
             ChatInput.AppendText(
                 "You: " + message +
                 Environment.NewLine + Environment.NewLine);
 
+            ChatInput.SelectionColor = ChatInput.ForeColor;
             ChatInput.SelectionStart = ChatInput.TextLength;
             ChatInput.ScrollToCaret();
         }
 
-        // Display the chatbot's response and scroll to the latest message.
+        // Display Bope's response in green.
         private void AddBotMessage(string message)
         {
+            ChatInput.SelectionStart = ChatInput.TextLength;
+            ChatInput.SelectionLength = 0;
+            ChatInput.SelectionColor = Color.ForestGreen;
+
             ChatInput.AppendText(
-                "Bot: " + message +
+                "Bope: " + message +
                 Environment.NewLine + Environment.NewLine);
 
+            ChatInput.SelectionColor = ChatInput.ForeColor;
             ChatInput.SelectionStart = ChatInput.TextLength;
             ChatInput.ScrollToCaret();
         }
 
-        // Stop the audio and release resources when the form closes.
+        // Release audio and image resources when the form closes.
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             player?.Stop();
@@ -187,13 +197,16 @@ namespace ChatBot
             base.OnFormClosed(e);
         }
 
-        // Leave this method only if the Designer uses this event handler.
+        // Keep these methods if the Designer uses these event handlers.
         private void pictureBox1_Click(object sender, EventArgs e)
         {
         }
 
-        // Leave this method only if the Designer uses this event handler.
         private void pictureBox2_Click(object sender, EventArgs e)
+        {
+        }
+
+        private void ChatInput2_TextChanged(object sender, EventArgs e)
         {
         }
     }
